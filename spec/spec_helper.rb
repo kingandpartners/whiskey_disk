@@ -2,8 +2,6 @@ require 'rubygems'
 require 'bacon'
 require 'facon'
 require 'fileutils'
-require 'tempfile'
-require 'erb'
 
 if ENV['DEBUG'] and ENV['DEBUG'] != ''
   STDERR.puts "Enabling debugger for spec runs..."
@@ -16,7 +14,7 @@ $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib')))
 
 # local target directory, integration spec workspace
 def deployment_root
-  File.expand_path(File.join(File.dirname(__FILE__), '..', 'scenarios', 'setup', 'vagrant', 'deployed', 'target'))
+  '/tmp/wd-integration-target/destination/'
 end
 
 # allow defining an integration spec block
@@ -55,40 +53,14 @@ end
 
 # build the correct local path to the deployment configuration for a given scenario
 def scenario_config(path)
-  return erb_scenario_config(path) if path =~ /\.erb$/
-  scenario_config_path(path)
-end
-
-def scenario_config_path(path)
   File.join(File.dirname(__FILE__), '..', 'scenarios', path)
-end
-
-def erb_scenario_config(path)
-  data = File.read(scenario_config_path(path))
-  converted = erb_eval(data)
-  write_tempfile(converted)
-end
-
-def erb_eval(data)
-  ERB.new(data).result
-end
-
-def write_tempfile(data)
-  tmp_file = Tempfile.new('whiskey_disk_integration_spec_scenario')
-  tmp_file.puts(data)
-  tmp_file.close
-  tmp_file.path
 end
 
 # clone a git repository locally (as if a "wd setup" had been deployed)
 def checkout_repo(repo_name, branch = nil)
   repo_path = File.expand_path(File.join(File.dirname(__FILE__), '..', 'scenarios', 'git_repositories', "#{repo_name}.git"))
-  system("cd #{deployment_root} && git clone #{repo_path} >/dev/null 2>/dev/null && cd #{repo_name} && git remote set-url origin #{remote_url(repo_name)}")
+  system("cd #{deployment_root} && git clone #{repo_path} >/dev/null 2>/dev/null")
   checkout_branch(repo_name, branch)
-end
-
-def remote_url(repo)
-  "git://wd-git.example.com/#{repo}.git"
 end
 
 def checkout_branch(repo_name, branch = nil)

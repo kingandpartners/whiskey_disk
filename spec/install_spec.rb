@@ -16,24 +16,24 @@ describe 'the plugin install.rb script' do
   end
   
   describe 'readme_contents' do
-    it 'works without arguments' do
+    it 'should work without arguments' do
       do_install
       lambda { readme_contents }.should.not.raise(ArgumentError)
     end
     
-    it 'accepts no arguments' do
+    it 'should accept no arguments' do
       do_install
       lambda { readme_contents(:foo) }.should.raise(ArgumentError)
     end
     
-    it 'reads the plugin README file' do
+    it 'should read the plugin README file' do
       do_install
       File.stub!(:join).and_return('/path/to/README')
       IO.should.receive(:read).with('/path/to/README')
       readme_contents
     end
     
-    it 'returns the contents of the plugin README file' do
+    it 'should return the contents of the plugin README file' do
       do_install
       File.stub!(:join).and_return('/path/to/README')
       IO.stub!(:read).with('/path/to/README').and_return('README CONTENTS')
