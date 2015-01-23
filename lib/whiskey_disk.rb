@@ -1,7 +1,10 @@
 require File.expand_path(File.join(File.dirname(__FILE__), 'whiskey_disk', 'config'))
+require File.expand_path(File.join(File.dirname(__FILE__), 'whiskey_disk', 'version'))
 
 class WhiskeyDisk
   class << self
+    include WhiskeyDisk::Version
+
     attr_writer :configuration
     attr_reader :results
     attr_accessor :active_domain
