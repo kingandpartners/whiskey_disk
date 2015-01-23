@@ -5,9 +5,12 @@ def role?(role)
   ENV['WD_ROLES'].split(':').include?(role.to_s)
 end
 
+def hostname
+  @hostname ||= Socket.gethostname
+end
+
 def note(msg=nil)
-  @@hostname ||= Socket.gethostname
-  puts "[#{@@hostname}] #{msg}"
+  puts "[#{hostname}] #{msg}"
 end
 
 # have files of interest changed on this deployment?
