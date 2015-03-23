@@ -1,6 +1,7 @@
 require 'yaml'
 require 'uri'
 require 'open-uri'
+require 'aws-sdk'
 
 class WhiskeyDisk
   class Config
@@ -146,9 +147,12 @@ class WhiskeyDisk
 
         compacted.collect do |d|
           if d.respond_to?(:keys)
-            row = { :name => (d['name'] || d[:name]) }
-            roles = compact_list(d['roles'] || d[:roles])
-            row[:roles] = roles unless roles.empty?
+            row              = { :name => (d['name'] || d[:name]) }
+            roles            = compact_list(d['roles'] || d[:roles])
+            row[:roles]      = roles unless roles.empty?
+            row[:region]     = d['region'] || d[:region]
+            row[:group_name] = d['group_name'] || d[:group_name]
+            row[:user]       = d['user'] || d[:user]
             row
           else
             { :name => d }
@@ -182,6 +186,50 @@ class WhiskeyDisk
         raise %Q{Error reading configuration file [#{configuration_file}]: "#{e}"}
       end
 
+      def is_auto_scaling_group?(current)
+        current['domain'][0][:name] == 'auto_scaling_group'
+      end
+
+      def region(current)
+        current['domain'][0][:region] || 'us-east-1'
+      end
+
+      def autoscaling_client(current)
+        @asg_client ||= Aws::AutoScaling::Client.new(region: region(current))
+      end
+
+      def ec2_client(current)
+        @ec2_client ||= Aws::EC2::Client.new(region: region(current))
+      end
+
+      def asg_roles(current)
+        current['domain'][0][:roles]
+      end
+
+      def user(current)
+        current['domain'][0][:user]
+      end
+
+      def get_asg_nodes(current)
+        asgs  = autoscaling_client(current).describe_auto_scaling_groups
+        group = asgs[:auto_scaling_groups].detect do |asg|
+          asg[:auto_scaling_group_name] == current['domain'][0][:group_name]
+        end
+        instances = ec2_client(current).describe_instances(
+          instance_ids: group[:instances].map { |i| i[:instance_id] }
+        )
+        instance_map = []
+        instances[:reservations].each do |reservation|
+          reservation[:instances].each do |instance|
+            instance_map << {
+              name: "#{user(current)}@#{instance[:public_ip_address]}",
+              roles: asg_roles(current)
+            }
+          end
+        end
+        instance_map
+      end
+
       def filter_data(data)
         current = data[project_name][environment_name] rescue nil
         raise "No configuration file defined data for project `#{project_name}`, environment `#{environment_name}`" unless current
@@ -190,6 +238,10 @@ class WhiskeyDisk
           'environment' => environment_name,
           'project' => project_name,
         })
+
+        if is_auto_scaling_group?(current)
+          current['domain'] = get_asg_nodes(current)
+        end
 
         current['config_target'] ||= environment_name
         current
