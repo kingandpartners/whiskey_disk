@@ -142,24 +142,27 @@ class WhiskeyDisk
         [ list ].flatten.delete_if { |d| d.nil? or d == '' }
       end
 
+      def set_if_present(row, key, domain_hash)
+        value     = domain_hash[key.to_s] || domain_hash[key]
+        if value.is_a?(Array) || key.to_s == 'roles'
+          value   = compact_list(value)
+        end
+        row[key]  = value unless Array(value).empty? || value == ''
+        row
+      end
+
+      def whitelisted_keys
+        [:name, :roles, :region, :group_name, :user]
+      end
+
       def normalize_domain(data)
         compacted = localize_domain_list(data)
         compacted = [ 'local' ] if compacted.empty?
 
         compacted.collect do |d|
           if d.respond_to?(:keys)
-            row              = { :name => (d['name'] || d[:name]) }
-            roles            = compact_list(d['roles'] || d[:roles])
-            row[:roles]      = roles unless roles.empty?
-            unless d['region'].nil? && d[:region].nil?
-              row[:region] = d['region'] || d[:region]
-            end
-            unless d['group_name'].nil? || d[:group_name].nil?
-              row[:group_name] = d['group_name'] || d[:group_name]
-            end
-            unless d['user'].nil? || d[:user].nil?
-              row[:user] = d['user'] || d[:user]
-            end
+            row = {}
+            whitelisted_keys.each { |key| row = set_if_present(row, key, d) }
             row
           else
             { :name => d }

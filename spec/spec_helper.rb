@@ -87,3 +87,49 @@ end
 def current_branch(path)
   `cd #{deployed_file(path)} && git branch`.split("\n").grep(/^\*/).first.sub(/^\* /, '')
 end
+
+def xml_fixture(name)
+  File.open(File.expand_path("../fixtures/#{name}.xml", __FILE__))
+end
+
+def stub_autoscaling_response
+  stub_request(:post, "https://autoscaling.us-west-1.amazonaws.com/").
+    with(
+      :body => "Action=DescribeAutoScalingGroups&Version=2011-01-01",
+      :headers => {
+        'Accept'               => '*/*',
+        'Accept-Encoding'      => '',
+        'Authorization'        => /^\s*(#|$)|\b(Credential|SignedHeaders|Signature)\b/,
+        'Content-Length'       => '51',
+        'Content-Type'         => 'application/x-www-form-urlencoded; charset=utf-8',
+        'Host'                 => 'autoscaling.us-west-1.amazonaws.com',
+        'User-Agent'           => 'aws-sdk-ruby2/2.0.31 ruby/2.0.0 x86_64-darwin13.1.0',
+        'X-Amz-Content-Sha256' => /[0-9a-z]{64}/,
+        'X-Amz-Date'           => /[0-9A-Z]{16}/
+      }).to_return(
+        :status => 200,
+        :body => xml_fixture('describe_auto_scaling_groups'),
+        :headers => {:content_type => 'application/xml'}
+      )
+end
+
+def stub_ec2_instances_response
+  stub_request(:post, "https://ec2.us-west-1.amazonaws.com/").
+    with(
+      :body => "Action=DescribeInstances&InstanceId.1=i-100e50e0&Version=2014-10-01",
+      :headers => {
+        'Accept'               => '*/*',
+        'Accept-Encoding'      => '',
+        'Authorization'        => /^\s*(#|$)|\b(Credential|SignedHeaders|Signature)\b/,
+        'Content-Length'       => '67',
+        'Content-Type'         => 'application/x-www-form-urlencoded; charset=utf-8',
+        'Host'                 => 'ec2.us-west-1.amazonaws.com',
+        'User-Agent'           => 'aws-sdk-ruby2/2.0.31 ruby/2.0.0 x86_64-darwin13.1.0',
+        'X-Amz-Content-Sha256' => /[0-9a-z]{64}/,
+        'X-Amz-Date'           => /[0-9A-Z]{16}/
+      }).to_return(
+        :status => 200,
+        :body => xml_fixture('describe_ec2_instances'),
+        :headers => {:content_type => 'application/xml'}
+      )
+end

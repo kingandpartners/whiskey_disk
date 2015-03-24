@@ -3,6 +3,9 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'w
 require 'yaml'
 require 'tmpdir'
 require 'fileutils'
+require 'webmock'
+include WebMock::API
+WebMock.disable_net_connect!
 
 # create a file at the specified path
 def make(path)
@@ -545,8 +548,37 @@ describe WhiskeyDisk::Config do
         )
         
         lambda { WhiskeyDisk::Config.load_data }.should.raise
-        
       end
+
+      it 'should build domain from AWS Auto-scaling Group when domain name is set to auto_scaling_group' do
+        write_config_file(
+          'foo' => {
+            'erl' => {
+              'repository' => 'x',
+              'domain'     => [
+                {
+                  'name'       => 'auto_scaling_group',
+                  'roles'      => ['web'],
+                  'region'     => 'us-west-1',
+                  'group_name' => 'asg-test-group',
+                  'user'       => 'deploy'
+                }
+              ]
+            },
+          }
+        )
+        WhiskeyDisk::Config.stub!(:project_name).and_return('foo')
+        WhiskeyDisk::Config.stub!(:environment_name).and_return('erl')
+        stub_autoscaling_response
+        stub_ec2_instances_response
+        WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'].should == [
+          {
+            :name  => 'deploy@12.34.56.78',
+            :roles => [ 'web' ]
+          }
+        ]
+      end
+
     end
   end
 
