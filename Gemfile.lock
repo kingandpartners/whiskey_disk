@@ -1,0 +1,33 @@
+PATH
+  remote: .
+  specs:
+    whiskey_disk (0.7.1.1)
+      aws-sdk
+      rake
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    aws-sdk (1.58.0)
+      aws-sdk-v1 (= 1.58.0)
+    aws-sdk-v1 (1.58.0)
+      json (~> 1.4)
+      nokogiri (>= 1.4.4)
+    bacon (1.1.0)
+    extensions (0.6.0)
+    facon (0.5.0)
+    json (1.8.2)
+    mini_portile (0.6.2)
+    nokogiri (1.6.6.2)
+      mini_portile (~> 0.6.0)
+    rake (0.9.6)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bacon (~> 1.1.0)
+  extensions
+  facon (~> 0.5.0)
+  rake (~> 0.9)
+  whiskey_disk!
