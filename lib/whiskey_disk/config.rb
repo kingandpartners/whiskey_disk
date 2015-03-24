@@ -41,6 +41,7 @@ class WhiskeyDisk
       def debug_any?
         debug_shell? || debug_ssh?
       end
+      alias_method :debug?, :debug_any?
 
       def domain_limit
         return false unless ENV['only'] and ENV['only'] != ''
@@ -150,9 +151,15 @@ class WhiskeyDisk
             row              = { :name => (d['name'] || d[:name]) }
             roles            = compact_list(d['roles'] || d[:roles])
             row[:roles]      = roles unless roles.empty?
-            row[:region]     = d['region'] || d[:region]
-            row[:group_name] = d['group_name'] || d[:group_name]
-            row[:user]       = d['user'] || d[:user]
+            unless d['region'].nil? && d[:region].nil?
+              row[:region] = d['region'] || d[:region]
+            end
+            unless d['group_name'].nil? || d[:group_name].nil?
+              row[:group_name] = d['group_name'] || d[:group_name]
+            end
+            unless d['user'].nil? || d[:user].nil?
+              row[:user] = d['user'] || d[:user]
+            end
             row
           else
             { :name => d }
