@@ -1,7 +1,7 @@
 require 'yaml'
 require 'uri'
 require 'open-uri'
-require 'aws-sdk'
+autoload :Aws, 'aws-sdk'
 
 class WhiskeyDisk
   class Config
@@ -222,8 +222,15 @@ class WhiskeyDisk
 
       def get_asg_nodes(current)
         asgs  = autoscaling_client(current).describe_auto_scaling_groups
+        group_name = current['domain'][0][:group_name]
         group = asgs[:auto_scaling_groups].detect do |asg|
-          asg[:auto_scaling_group_name] == current['domain'][0][:group_name]
+          asg[:auto_scaling_group_name] == group_name
+        end
+        unless group
+          msg  = "\nNo members found for the `#{group_name}` group in the "
+          msg += "`#{region(current)}` region\nAre you sure you the "
+          msg += "group_name and region are correct and exist?"
+          raise RuntimeError, msg, "ERROR"
         end
         instances = ec2_client(current).describe_instances(
           instance_ids: group[:instances].map { |i| i[:instance_id] }

@@ -550,33 +550,63 @@ describe WhiskeyDisk::Config do
         lambda { WhiskeyDisk::Config.load_data }.should.raise
       end
 
-      it 'should build domain from AWS Auto-scaling Group when domain name is set to auto_scaling_group' do
-        write_config_file(
-          'foo' => {
-            'erl' => {
-              'repository' => 'x',
-              'domain'     => [
-                {
-                  'name'       => 'auto_scaling_group',
-                  'roles'      => ['web'],
-                  'region'     => 'us-west-1',
-                  'group_name' => 'asg-test-group',
-                  'user'       => 'deploy'
-                }
-              ]
-            },
-          }
-        )
-        WhiskeyDisk::Config.stub!(:project_name).and_return('foo')
-        WhiskeyDisk::Config.stub!(:environment_name).and_return('erl')
-        stub_autoscaling_response
-        stub_ec2_instances_response
-        WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'].should == [
-          {
-            :name  => 'deploy@12.34.56.78',
-            :roles => [ 'web' ]
-          }
-        ]
+      describe 'domains dynamically retreived by AWS Auto-scaling Groups' do
+
+        before do
+          write_config_file(
+            'foo' => {
+              # valid config
+              'valid' => {
+                'repository' => 'x',
+                'domain'     => [
+                  {
+                    'name'       => 'auto_scaling_group',
+                    'roles'      => ['web'],
+                    'region'     => 'us-west-1',
+                    'group_name' => 'asg-test-group',
+                    'user'       => 'deploy'
+                  }
+                ]
+              },
+              # invalid config
+              'invalid' => {
+                'repository' => 'x',
+                'domain'     => [
+                  {
+                    'name'       => 'auto_scaling_group'
+                  }
+                ]
+              }
+            }
+          )
+        end
+
+        describe 'with a valid deploy config file' do
+
+          before do
+            WhiskeyDisk::Config.stub!(:project_name).and_return('foo')
+            WhiskeyDisk::Config.stub!(:environment_name).and_return('valid')
+          end
+
+          it 'should build domain from AWS Auto-scaling Group when domain name is set to auto_scaling_group' do
+            stub_autoscaling_response
+            stub_ec2_instances_response
+            WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'].should == [
+              {
+                :name  => 'deploy@12.34.56.78',
+                :roles => [ 'web' ]
+              }
+            ]
+          end
+
+          it 'should raise an error when "auto_scaling_group" is set and no group members are found' do
+            stub_autoscaling_response(:empty)
+            stub_ec2_instances_response
+            lambda { WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'] }.should.raise
+          end
+
+        end
+
       end
 
     end

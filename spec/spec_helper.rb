@@ -92,7 +92,23 @@ def xml_fixture(name)
   File.open(File.expand_path("../fixtures/#{name}.xml", __FILE__))
 end
 
-def stub_autoscaling_response
+def ec2_fixture(type)
+  case type
+  when :success
+    xml_fixture('describe_ec2_instances')
+  end
+end
+
+def asg_fixture(type)
+  case type
+  when :success
+    xml_fixture('describe_auto_scaling_groups')
+  when :empty
+    xml_fixture('describe_auto_scaling_groups_empty')
+  end
+end
+
+def stub_autoscaling_response(type = :success)
   stub_request(:post, "https://autoscaling.us-west-1.amazonaws.com/").
     with(
       :body => "Action=DescribeAutoScalingGroups&Version=2011-01-01",
@@ -108,12 +124,12 @@ def stub_autoscaling_response
         'X-Amz-Date'           => /[0-9A-Z]{16}/
       }).to_return(
         :status => 200,
-        :body => xml_fixture('describe_auto_scaling_groups'),
+        :body => asg_fixture(type),
         :headers => {:content_type => 'application/xml'}
       )
 end
 
-def stub_ec2_instances_response
+def stub_ec2_instances_response(type = :success)
   stub_request(:post, "https://ec2.us-west-1.amazonaws.com/").
     with(
       :body => "Action=DescribeInstances&InstanceId.1=i-100e50e0&Version=2014-10-01",
@@ -129,7 +145,7 @@ def stub_ec2_instances_response
         'X-Amz-Date'           => /[0-9A-Z]{16}/
       }).to_return(
         :status => 200,
-        :body => xml_fixture('describe_ec2_instances'),
+        :body => ec2_fixture(type),
         :headers => {:content_type => 'application/xml'}
       )
 end
