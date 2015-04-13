@@ -554,16 +554,15 @@ describe WhiskeyDisk::Config do
 
         before do
           write_config_file(
-            'foo' => {
+            'asg' => {
               # valid config
-              'valid' => {
+              'test' => {
                 'repository' => 'x',
                 'domain'     => [
                   {
                     'name'       => 'auto_scaling_group',
                     'roles'      => ['web'],
                     'region'     => 'us-west-1',
-                    'group_name' => 'asg-test-group',
                     'user'       => 'deploy'
                   }
                 ]
@@ -584,8 +583,8 @@ describe WhiskeyDisk::Config do
         describe 'with a valid deploy config file' do
 
           before do
-            WhiskeyDisk::Config.stub!(:project_name).and_return('foo')
-            WhiskeyDisk::Config.stub!(:environment_name).and_return('valid')
+            WhiskeyDisk::Config.stub!(:project_name).and_return('asg')
+            WhiskeyDisk::Config.stub!(:environment_name).and_return('test')
           end
 
           it 'should build domain from AWS Auto-scaling Group when domain name is set to auto_scaling_group' do
