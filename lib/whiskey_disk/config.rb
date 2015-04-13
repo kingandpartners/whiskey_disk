@@ -222,7 +222,8 @@ class WhiskeyDisk
 
       def get_asg_nodes(current)
         asgs  = autoscaling_client(current).describe_auto_scaling_groups
-        group_name = "#{project_name}-#{environment_name}"
+        clean_project_name = project_name.split('.')[0]
+        group_name         = "#{clean_project_name}-#{environment_name}"
         group = asgs[:auto_scaling_groups].detect do |asg|
           !!asg[:auto_scaling_group_name].match(/#{group_name}/)
         end
