@@ -237,10 +237,11 @@ class WhiskeyDisk
           instance_ids: group[:instances].map { |i| i[:instance_id] }
         )
         instance_map = []
+        
         instances[:reservations].each do |reservation|
           reservation[:instances].each do |instance|
             instance_map << {
-              name: "#{user(current)}@#{instance[:public_ip_address]}",
+              name: "#{user(current)}@#{instance[:private_ip_address]}",
               roles: asg_roles(current)
             }
           end
