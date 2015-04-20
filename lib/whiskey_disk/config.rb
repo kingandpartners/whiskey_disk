@@ -248,6 +248,43 @@ class WhiskeyDisk
         instance_map
       end
 
+      def parse_index_from_sub_name(name)
+        if name == 'first'
+          0
+        elsif name == 'last'
+          -1
+        elsif name.include?('index_')
+          name.gsub('index_','').to_i
+        else
+          nil
+        end
+      end
+
+      def apply_subdomain_attributes(current, subdomains)
+        subdomains.each do |sub|
+
+          # get instance index
+          index = parse_index_from_sub_name( sub[:name] )
+          next unless index.present?
+
+          # get instance from index
+          instance = current['domain'][index]
+
+          # get params subdomain attributes
+          params = sub.reject{|k,v| k == :name }
+
+          # add in params to instance config
+          params.keys.each do |key|
+            if instance.has_key?(key)
+              instance[key] = instance[key] += params[key]
+            else
+              instance[key] = params[key]
+            end
+          end
+
+        end
+      end
+
       def filter_data(data)
         current = data[project_name][environment_name] rescue nil
         raise "No configuration file defined data for project `#{project_name}`, environment `#{environment_name}`" unless current
@@ -258,7 +295,21 @@ class WhiskeyDisk
         })
 
         if is_auto_scaling_group?(current)
-          current['domain'] = get_asg_nodes(current)
+
+          #
+          #   pull 'subdomain' attributes from config
+          #   i.e. attributes that should only apply to certain nodes
+          #
+          subdomains            = current['domain'][1..-1]
+          
+          # get the ASG nodes from AWS
+          current['domain']     = get_asg_nodes(current)
+
+          # apply subdomain attributes
+          if subdomains.present?
+            apply_subdomain_attributes(current, subdomains)
+          end
+
         end
 
         current['config_target'] ||= environment_name
