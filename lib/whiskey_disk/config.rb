@@ -265,7 +265,7 @@ class WhiskeyDisk
 
           # get instance index
           index = parse_index_from_sub_name( sub[:name] )
-          next unless index.present?
+          next if index.nil?
 
           # get instance from index
           instance = current['domain'][index]
@@ -306,7 +306,7 @@ class WhiskeyDisk
           current['domain']     = get_asg_nodes(current)
 
           # apply subdomain attributes
-          if subdomains.present?
+          unless subdomains.nil? || subdomains.empty?
             apply_subdomain_attributes(current, subdomains)
           end
 
