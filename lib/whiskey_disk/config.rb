@@ -233,9 +233,15 @@ class WhiskeyDisk
           msg += "group_name and region are correct and exist?"
           raise RuntimeError, msg, "ERROR"
         end
+
         instances = ec2_client(current).describe_instances(
           instance_ids: group[:instances].map { |i| i[:instance_id] }
         )
+        
+        get_instance_map_from_instances(current, instances)
+      end
+
+      def get_instance_map_from_instances(current, instances)
         instance_map = []
         
         instances[:reservations].each do |reservation|
@@ -247,6 +253,22 @@ class WhiskeyDisk
           end
         end
         instance_map
+      end
+
+      def get_nodes_by_tags(current)
+        instances = ec2_client(current).describe_instances(
+          filters: build_filter_params_from_tags(current)
+        )
+        get_instance_map_from_instances(current, instances)
+      end
+
+      def build_filter_params_from_tags(current)
+        # expected format: [{name:'tag:Name', values:['bakingAMI']}]
+        filter_params = []
+        current['node_tags'].each_pair do |k,v|
+          filter_params << { name: "tag:#{k}", values: [v] }
+        end
+        filter_params
       end
 
       def parse_index_from_sub_name(name)
@@ -303,8 +325,15 @@ class WhiskeyDisk
           #
           subdomains            = current['domain'][1..-1]
           
-          # get the ASG nodes from AWS
-          current['domain']     = get_asg_nodes(current)
+          current.merge!(node_tags) unless node_tags.nil?
+
+          if use_all_nodes?
+            # get the ASG nodes from AWS
+            current['domain']     = get_asg_nodes(current)
+          else
+            # get nodes specified by --tags option
+            current['domain']     = get_nodes_by_tags(current)
+          end
 
           # apply subdomain attributes
           unless subdomains.nil? || subdomains.empty?
@@ -315,6 +344,28 @@ class WhiskeyDisk
 
         current['config_target'] ||= environment_name
         current
+      end
+
+      def use_all_nodes?
+        node_tags.nil? || node_tags.empty?
+      end
+
+      def node_tags
+        return nil if ENV['tags'].nil?
+        
+        @node_tags ||= { 
+          'node_tags' => parse_node_tags(ENV['tags'])
+        }
+      end
+
+      def parse_node_tags(tags)
+        parsed_tags = {}
+        tags.split(',').each do |tag|
+          key = tag.split('=')[0]
+          val = tag.split('=')[1]
+          parsed_tags[key] = val
+        end
+        parsed_tags
       end
 
       def fetch

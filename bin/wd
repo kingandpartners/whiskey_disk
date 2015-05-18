@@ -19,6 +19,10 @@ op = OptionParser.new do |opts|
     options[:only] = domain
   end
 
+  opts.on('--tags=TAGS', "limit deployment to instances with tags") do |tags|
+    options[:tags] = tags
+  end
+
   opts.on('-c', '--check', "do a staleness check before deploying") do |path|
     options[:check] = 'true'
   end
@@ -63,6 +67,7 @@ ENV['only'] = options[:only]
 ENV['check'] = options[:check]
 ENV['debug_ssh'] = options[:debug_ssh]
 ENV['debug_shell'] = options[:debug_shell]
+ENV['tags']= options[:tags]
 
 if command == 'deploy'
   Rake::Task['deploy:now'].invoke
