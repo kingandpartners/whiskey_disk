@@ -20,8 +20,10 @@ domain:
   - "foo"
 ```    
 
-- specify instances to deploy to by AWS EC2 tags with --tags option
-`wd -t staging deploy --tags Name=bakingAMI,buildNumber=136`
+- specify instances to deploy to by AWS EC2 tags with `--tags` option
+```
+wd -t staging deploy --tags Name=bakingAMI,buildNumber=136
+```
 
 ## Whiskey Disk -- embarrassingly fast deployments. ##
 
