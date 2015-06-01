@@ -32,6 +32,22 @@ namespace :deploy do
     exit(1) unless WhiskeyDisk.success?
   end
   
+  desc "Scale up Auto Scaling Group instance."
+  task :scale do
+    
+    # FIX ME: Do we need these???
+    # WhiskeyDisk.enable_staleness_checks
+    # WhiskeyDisk.update_main_repository_checkout
+    # WhiskeyDisk.update_configuration_repository_checkout  if WhiskeyDisk.has_config_repo?
+    # WhiskeyDisk.refresh_configuration                     if WhiskeyDisk.has_config_repo?
+    
+    WhiskeyDisk.run_post_scale_hooks
+    WhiskeyDisk.flush
+    WhiskeyDisk.summarize
+
+    exit(1) unless WhiskeyDisk.success?
+  end
+
   task :post_setup do
     env = WhiskeyDisk[:environment]
     Rake::Task["deploy:#{env}:post_setup"].invoke if Rake::Task.task_defined? "deploy:#{env}:post_setup"      
@@ -41,4 +57,10 @@ namespace :deploy do
     env = WhiskeyDisk[:environment]
     Rake::Task["deploy:#{env}:post_deploy"].invoke if Rake::Task.task_defined? "deploy:#{env}:post_deploy"      
   end
+
+  task :post_scale do
+    env = WhiskeyDisk[:environment]
+    Rake::Task["deploy:#{env}:post_scale"].invoke if Rake::Task.task_defined? "deploy:#{env}:post_scale"      
+  end
+  
 end

@@ -3,7 +3,7 @@
 require 'optparse'
 require 'whiskey_disk/rake'
 
-$0 = "#{$0} setup|deploy"  # jesus, this is a hack.
+$0 = "#{$0} setup|deploy|scale"  # jesus, this is a hack.
 
 options = {}
 op = OptionParser.new do |opts|
@@ -59,8 +59,9 @@ end
 abort op.to_s unless options[:target]
 abort op.to_s unless rest and rest.size == 1
 command = rest.first
-abort op.to_s unless ['deploy', 'setup'].include?(command)
+abort op.to_s unless ['deploy', 'setup', 'scale'].include?(command)
 
+ENV['command'] = command
 ENV['to'] = options[:target]
 ENV['path'] = options[:path]
 ENV['only'] = options[:only]
@@ -71,6 +72,8 @@ ENV['tags']= options[:tags]
 
 if command == 'deploy'
   Rake::Task['deploy:now'].invoke
+elsif command == 'scale'
+  Rake::Task['deploy:scale'].invoke
 else
   Rake::Task['deploy:setup'].invoke
 end

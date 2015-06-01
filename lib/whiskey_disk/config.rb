@@ -317,7 +317,11 @@ class WhiskeyDisk
           'project' => project_name,
         })
 
-        if is_auto_scaling_group?(current)
+        if is_scaling_instance?
+          # running on instance command is called from
+          current['domain'] = [{ name: 'local', roles: ["app", "assets"] }]
+
+        elsif is_auto_scaling_group?(current)
 
           #
           #   pull 'subdomain' attributes from config
@@ -344,6 +348,10 @@ class WhiskeyDisk
 
         current['config_target'] ||= environment_name
         current
+      end
+
+      def is_scaling_instance?
+        ENV['command'] == 'scale'
       end
 
       def use_all_nodes?
