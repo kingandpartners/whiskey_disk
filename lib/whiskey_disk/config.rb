@@ -237,13 +237,13 @@ class WhiskeyDisk
         instances = ec2_client(current).describe_instances(
           instance_ids: group[:instances].map { |i| i[:instance_id] }
         )
-        
+
         get_instance_map_from_instances(current, instances)
       end
 
       def get_instance_map_from_instances(current, instances)
         instance_map = []
-        
+
         instances[:reservations].each do |reservation|
           reservation[:instances].each do |instance|
             instance_map << {
@@ -328,7 +328,7 @@ class WhiskeyDisk
           #   i.e. attributes that should only apply to certain nodes
           #
           subdomains            = current['domain'][1..-1]
-          
+
           current.merge!(node_tags) unless node_tags.nil?
 
           if use_all_nodes?
@@ -340,7 +340,9 @@ class WhiskeyDisk
           end
 
           # apply subdomain attributes
-          unless subdomains.nil? || subdomains.empty?
+          # FIX ME: how to handle subdomains when instances grabbed by tags?
+          # see https://github.com/kingandpartners/devops/issues/46
+          unless !use_all_nodes? || subdomains.nil? || subdomains.empty?
             apply_subdomain_attributes(current, subdomains)
           end
 
@@ -360,8 +362,8 @@ class WhiskeyDisk
 
       def node_tags
         return nil if ENV['tags'].nil?
-        
-        @node_tags ||= { 
+
+        @node_tags ||= {
           'node_tags' => parse_node_tags(ENV['tags'])
         }
       end
