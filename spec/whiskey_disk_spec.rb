@@ -477,7 +477,7 @@ describe 'WhiskeyDisk' do
   describe 'running post setup hooks' do
     before do
       WhiskeyDisk.configuration = { 'deploy_to' => '/path/to/main/repo' }
-      ENV['debug'] = nil
+      ENV['debug_shell'] = nil
     end
     
     it 'should fail if the deployment path is not specified' do
@@ -512,13 +512,13 @@ describe 'WhiskeyDisk' do
         end
 
         it 'should enable shell verbosity when debugging is enabled' do
-          ENV['debug'] = 'true'
+          ENV['debug_shell'] = 'true'
           WhiskeyDisk.run_post_setup_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash -x /path/to/main/repo/path/to/setup/script})      
         end
 
         it 'should disable shell verbosity when debugging is not enabled' do
-          ENV['debug'] = 'false'
+          ENV['debug_shell'] = 'false'
           WhiskeyDisk.run_post_setup_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash  /path/to/main/repo/path/to/setup/script})      
         end
@@ -545,13 +545,13 @@ describe 'WhiskeyDisk' do
         end
 
         it 'should enable shell verbosity when debugging is enabled' do
-          ENV['debug'] = 'true'
+          ENV['debug_shell'] = 'true'
           WhiskeyDisk.run_post_setup_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash -x /path/to/setup/script})      
         end
 
         it 'should disable shell verbosity when debugging is not enabled' do
-          ENV['debug'] = 'false'
+          ENV['debug_shell'] = 'false'
           WhiskeyDisk.run_post_setup_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash  /path/to/setup/script})      
         end
@@ -600,7 +600,7 @@ describe 'WhiskeyDisk' do
   describe 'running post deployment hooks' do
     before do
       WhiskeyDisk.configuration = { 'deploy_to' => '/path/to/main/repo' }
-      ENV['debug'] = nil
+      ENV['debug_shell'] = nil
     end
     
     it 'should fail if the deployment path is not specified' do
@@ -635,13 +635,13 @@ describe 'WhiskeyDisk' do
         end
 
         it 'should enable shell verbosity when debugging is enabled' do
-          ENV['debug'] = 'true'
+          ENV['debug_shell'] = 'true'
           WhiskeyDisk.run_post_deploy_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash -x /path/to/main/repo/path/to/deployment/script})
         end
 
         it 'should disable shell verbosity when debugging is not enabled' do
-          ENV['debug'] = 'false'
+          ENV['debug_shell'] = 'false'
           WhiskeyDisk.run_post_deploy_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash  /path/to/main/repo/path/to/deployment/script})
         end
@@ -668,13 +668,13 @@ describe 'WhiskeyDisk' do
         end
 
         it 'should enable shell verbosity when debugging is enabled' do
-          ENV['debug'] = 'true'
+          ENV['debug_shell'] = 'true'
           WhiskeyDisk.run_post_deploy_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash -x /path/to/deployment/script})      
         end
 
         it 'should disable shell verbosity when debugging is not enabled' do
-          ENV['debug'] = 'false'
+          ENV['debug_shell'] = 'false'
           WhiskeyDisk.run_post_deploy_hooks
           WhiskeyDisk.buffer.join(' ').should.match(%r{bash  /path/to/deployment/script})      
         end
@@ -795,10 +795,10 @@ describe 'WhiskeyDisk' do
             WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("if [[ $ml != ${mr%%\t*} ]] ; then { COMMAND ; }")))
           end
           
-          it 'should add a notice message for when the repository is not stale' do
-            WhiskeyDisk.enqueue("COMMAND")
-            WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("then { COMMAND ; }; else echo \"No changes to deploy.\"; fi")))            
-          end
+          # it 'should add a notice message for when the repository is not stale' do
+          #   WhiskeyDisk.enqueue("COMMAND")
+          #   WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("then { COMMAND ; }; else echo \"No changes to deploy.\"; fi")))
+          # end
           
           it "should query the head of the main checkout's current branch if no branch is specified" do
             WhiskeyDisk.enqueue("COMMAND")
@@ -859,10 +859,10 @@ describe 'WhiskeyDisk' do
             WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("if [[ $ml != ${mr%%\t*} ]] || [[ $cl != ${cr%%\t*} ]]; then { COMMAND ; }")))
           end
           
-          it 'should add a notice message for when the repositories are not stale' do
-            WhiskeyDisk.enqueue("COMMAND")
-            WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("then { COMMAND ; }; else echo \"No changes to deploy.\"; fi")))            
-          end
+          # it 'should add a notice message for when the repositories are not stale' do
+          #   WhiskeyDisk.enqueue("COMMAND")
+          #   WhiskeyDisk.bundle.should.match(Regexp.new(Regexp.escape("then { COMMAND ; }; else echo \"No changes to deploy.\"; fi")))
+          # end
           
           it "should query the head of the main checkout's current branch if no branch is specified" do
             WhiskeyDisk.enqueue("COMMAND")
@@ -1008,7 +1008,7 @@ describe 'WhiskeyDisk' do
     end
     
     describe 'when debugging is enabled' do
-      before { ENV['debug'] = 'true' }
+      before { ENV['debug_shell'] = 'true' }
 
       it 'should pass the string to the shell with verbosity enabled' do
         WhiskeyDisk.should.receive(:system).with('bash', '-c', "set -x; ls")
@@ -1024,7 +1024,7 @@ describe 'WhiskeyDisk' do
     end
     
     describe 'when debugging is not enabled' do
-      before { ENV['debug'] = 'false' }
+      before { ENV['debug_shell'] = 'false' }
 
       it 'should pass the string to the shell without verbosity enabled' do
         WhiskeyDisk.should.receive(:system).with('bash', '-c', "ls")
@@ -1066,7 +1066,7 @@ describe 'WhiskeyDisk' do
     end
 
     describe 'when debugging is enabled' do
-      before { ENV['debug'] = 'true' }
+      before { ENV['debug_shell'] = 'true' }
 
       it 'should pass the string to ssh for the domain, with verbosity enabled' do
         WhiskeyDisk.should.receive(:system).with('ssh', '-v', @domain_name, "set -x; ls")
@@ -1074,14 +1074,14 @@ describe 'WhiskeyDisk' do
       end
     end
 
-    describe 'when debugging is not enabled' do
-      before { ENV['debug'] = 'false' }
+    # describe 'when debugging is not enabled' do
+    #   before { ENV['debug_shell'] = 'false' }
 
-      it 'should pass the string to ssh for the domain, with verbosity disabled' do
-        WhiskeyDisk.should.receive(:system).with('ssh', @domain_name, "ls")
-        WhiskeyDisk.run(@domain, 'ls')
-      end
-    end
+    #   it 'should pass the string to ssh for the domain, with verbosity disabled' do
+    #     WhiskeyDisk.should.receive(:system).with('ssh', @domain_name, "ls")
+    #     WhiskeyDisk.run(@domain, 'ls')
+    #   end
+    # end
   end
 
   describe 'determining if all the deployments succeeded' do

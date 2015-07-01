@@ -236,7 +236,20 @@ class WhiskeyDisk
     def run_rake_task(path, task_name)
       enqueue "#{echo "Running rake #{task_name}..."}"
       enqueue "cd #{path}"
-      enqueue(if_file_present("#{self[:deploy_to]}/Rakefile",
+
+      puts "where am i? #{Dir.pwd}"
+      puts "path #{path}"
+      puts "task_name #{task_name}"
+      puts "self[:deploy_to] #{self[:deploy_to]}"
+
+      if Dir.pwd == self[:deploy_to]
+        rake_file_location = "#{self[:deploy_to]}/Rakefile"
+      else
+        rake_file_location = "#{Dir.pwd}/Rakefile"
+      end
+
+      puts "WARNING: no Rake file present, #{task_name} will be skipped" unless File.file?(rake_file_location)
+      enqueue(if_file_present(rake_file_location,
         if_task_defined(task_name, "#{env_vars} rake #{'--trace' if Config.debug_shell?} #{task_name} to=#{self[:environment]}")))
     end
 
@@ -330,6 +343,12 @@ class WhiskeyDisk
       needs(:deploy_to)
       run_script(self[:post_deploy_script])
       run_rake_task(self[:deploy_to], "deploy:post_deploy")
+    end
+
+    def run_post_scale_hooks
+      needs(:deploy_to)
+      run_script(self[:post_scale_script])
+      run_rake_task(self[:deploy_to], "deploy:post_scale")
     end
   end
 end

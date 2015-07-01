@@ -1,3 +1,30 @@
+## K&P Customizations
+
+### For Autoscaling Groups
+- specify ASG:
+```
+domain:
+  - name: 'auto_scaling_group'
+```
+
+- specify roles per instance... `first`, `last`, and `index_{i}` are valid names
+```
+- name: 'first'
+  roles:
+  - "db"
+- name: 'last'
+  roles:
+  - "jobs"
+- name: 'index_7'
+  roles:
+  - "foo"
+```    
+
+- specify instances to deploy to by AWS EC2 tags with `--tags` option
+```
+wd -t staging deploy --tags Name=bakingAMI,buildNumber=136
+```
+
 ## Whiskey Disk -- embarrassingly fast deployments. ##
 
 

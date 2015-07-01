@@ -3,6 +3,9 @@ require File.expand_path(File.join(File.dirname(__FILE__), '..', '..', 'lib', 'w
 require 'yaml'
 require 'tmpdir'
 require 'fileutils'
+require 'webmock'
+include WebMock::API
+WebMock.disable_net_connect!
 
 # create a file at the specified path
 def make(path)
@@ -109,37 +112,37 @@ describe WhiskeyDisk::Config do
 
   describe 'when determining whether to turn debug mode on' do
     it 'should return false when there is no ENV["debug"] setting' do
-      ENV['debug'] = nil
+      ENV['debug_ssh'] = nil
       WhiskeyDisk::Config.debug?.should == false
     end
 
     it 'should return false when the ENV["debug"] setting is blank' do
-      ENV['debug'] = ''
+      ENV['debug_ssh'] = ''
       WhiskeyDisk::Config.debug?.should == false
     end
 
     it 'should return true if the ENV["debug"] setting is "t"' do
-      ENV['debug'] = 't'
+      ENV['debug_ssh'] = 't'
       WhiskeyDisk::Config.debug?.should == true
     end
 
     it 'should return true if the ENV["debug"] setting is "true"' do
-      ENV['debug'] = 'true'
+      ENV['debug_ssh'] = 'true'
       WhiskeyDisk::Config.debug?.should == true
     end
 
     it 'should return true if the ENV["debug"] setting is "y"' do
-      ENV['debug'] = 'y'
+      ENV['debug_ssh'] = 'y'
       WhiskeyDisk::Config.debug?.should == true
     end
 
     it 'should return true if the ENV["debug"] setting is "yes"' do
-      ENV['debug'] = 'yes'
+      ENV['debug_ssh'] = 'yes'
       WhiskeyDisk::Config.debug?.should == true
     end
 
     it 'should return true if the ENV["debug"] setting is "1"' do
-      ENV['debug'] = '1'
+      ENV['debug_ssh'] = '1'
       WhiskeyDisk::Config.debug?.should == true
     end
   end
@@ -545,8 +548,66 @@ describe WhiskeyDisk::Config do
         )
         
         lambda { WhiskeyDisk::Config.load_data }.should.raise
-        
       end
+
+      describe 'domains dynamically retreived by AWS Auto-scaling Groups' do
+
+        before do
+          write_config_file(
+            'asg' => {
+              # valid config
+              'test' => {
+                'repository' => 'x',
+                'domain'     => [
+                  {
+                    'name'       => 'auto_scaling_group',
+                    'roles'      => ['web'],
+                    'region'     => 'us-west-1',
+                    'user'       => 'deploy'
+                  }
+                ]
+              },
+              # invalid config
+              'invalid' => {
+                'repository' => 'x',
+                'domain'     => [
+                  {
+                    'name'       => 'auto_scaling_group'
+                  }
+                ]
+              }
+            }
+          )
+        end
+
+        describe 'with a valid deploy config file' do
+
+          before do
+            WhiskeyDisk::Config.stub!(:project_name).and_return('asg')
+            WhiskeyDisk::Config.stub!(:environment_name).and_return('test')
+          end
+
+          it 'should build domain from AWS Auto-scaling Group when domain name is set to auto_scaling_group' do
+            stub_autoscaling_response
+            stub_ec2_instances_response
+            WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'].should == [
+              {
+                :name  => 'deploy@12.34.56.78',
+                :roles => [ 'web' ]
+              }
+            ]
+          end
+
+          it 'should raise an error when "auto_scaling_group" is set and no group members are found' do
+            stub_autoscaling_response(:empty)
+            stub_ec2_instances_response
+            lambda { WhiskeyDisk::Config.filter_data(WhiskeyDisk::Config.load_data)['domain'] }.should.raise
+          end
+
+        end
+
+      end
+
     end
   end
 

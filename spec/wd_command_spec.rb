@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/spec_helper.rb'
+require File.expand_path('../spec_helper.rb', __FILE__)
 require 'rake'
 
 def run_command
@@ -262,7 +262,8 @@ describe 'wd command' do
 
         it 'should make the specified target available as a "debug" argument to the rake task' do
           run_command
-          ENV['debug'].should == 'true'
+          ENV['debug_shell'].should == 'true'
+          ENV['debug_ssh'].should == 'true'
         end
 
         it 'should fail if the rake task fails' do
@@ -288,7 +289,8 @@ describe 'wd command' do
 
         it 'should make the specified target available as a "debug" argument to the rake task' do
           run_command
-          ENV['debug'].should == 'true'
+          ENV['debug_shell'].should == 'true'
+          ENV['debug_ssh'].should == 'true'
         end
 
         it 'should fail if the rake task fails' do

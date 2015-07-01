@@ -1,6 +1,7 @@
 require 'yaml'
 require 'uri'
 require 'open-uri'
+autoload :Aws, 'aws-sdk'
 
 class WhiskeyDisk
   class Config
@@ -40,6 +41,7 @@ class WhiskeyDisk
       def debug_any?
         debug_shell? || debug_ssh?
       end
+      alias_method :debug?, :debug_any?
 
       def domain_limit
         return false unless ENV['only'] and ENV['only'] != ''
@@ -140,15 +142,27 @@ class WhiskeyDisk
         [ list ].flatten.delete_if { |d| d.nil? or d == '' }
       end
 
+      def set_if_present(row, key, domain_hash)
+        value     = domain_hash[key.to_s] || domain_hash[key]
+        if value.is_a?(Array) || key.to_s == 'roles'
+          value   = compact_list(value)
+        end
+        row[key]  = value unless Array(value).empty? || value == ''
+        row
+      end
+
+      def whitelisted_keys
+        [:name, :roles, :region, :group_name, :user]
+      end
+
       def normalize_domain(data)
         compacted = localize_domain_list(data)
         compacted = [ 'local' ] if compacted.empty?
 
         compacted.collect do |d|
           if d.respond_to?(:keys)
-            row = { :name => (d['name'] || d[:name]) }
-            roles = compact_list(d['roles'] || d[:roles])
-            row[:roles] = roles unless roles.empty?
+            row = {}
+            whitelisted_keys.each { |key| row = set_if_present(row, key, d) }
             row
           else
             { :name => d }
@@ -182,6 +196,118 @@ class WhiskeyDisk
         raise %Q{Error reading configuration file [#{configuration_file}]: "#{e}"}
       end
 
+      def is_auto_scaling_group?(current)
+        current['domain'][0][:name] == 'auto_scaling_group'
+      end
+
+      def region(current)
+        current['domain'][0][:region] || 'us-east-1'
+      end
+
+      def autoscaling_client(current)
+        @asg_client ||= Aws::AutoScaling::Client.new(region: region(current))
+      end
+
+      def ec2_client(current)
+        @ec2_client ||= Aws::EC2::Client.new(region: region(current))
+      end
+
+      def asg_roles(current)
+        current['domain'][0][:roles]
+      end
+
+      def user(current)
+        current['domain'][0][:user]
+      end
+
+      def get_asg_nodes(current)
+        asgs  = autoscaling_client(current).describe_auto_scaling_groups
+        clean_project_name = project_name.split('.')[0]
+        group_name         = "#{clean_project_name}-#{environment_name}"
+        group = asgs[:auto_scaling_groups].detect do |asg|
+          !!asg[:auto_scaling_group_name].match(/#{group_name}/)
+        end
+        unless group
+          msg  = "\nNo members found for the `#{group_name}` group in the "
+          msg += "`#{region(current)}` region\nAre you sure you the "
+          msg += "group_name and region are correct and exist?"
+          raise RuntimeError, msg, "ERROR"
+        end
+
+        instances = ec2_client(current).describe_instances(
+          instance_ids: group[:instances].map { |i| i[:instance_id] }
+        )
+
+        get_instance_map_from_instances(current, instances)
+      end
+
+      def get_instance_map_from_instances(current, instances)
+        instance_map = []
+
+        instances[:reservations].each do |reservation|
+          reservation[:instances].each do |instance|
+            instance_map << {
+              name: "#{user(current)}@#{instance[:private_ip_address]}",
+              roles: asg_roles(current)
+            }
+          end
+        end
+        instance_map
+      end
+
+      def get_nodes_by_tags(current)
+        instances = ec2_client(current).describe_instances(
+          filters: build_filter_params_from_tags(current)
+        )
+        get_instance_map_from_instances(current, instances)
+      end
+
+      def build_filter_params_from_tags(current)
+        # expected format: [{name:'tag:Name', values:['bakingAMI']}]
+        filter_params = []
+        current['node_tags'].each_pair do |k,v|
+          filter_params << { name: "tag:#{k}", values: [v] }
+        end
+        filter_params
+      end
+
+      def parse_index_from_sub_name(name)
+        if name == 'first'
+          0
+        elsif name == 'last'
+          -1
+        elsif name.include?('index_')
+          name.gsub('index_','').to_i
+        else
+          nil
+        end
+      end
+
+      def apply_subdomain_attributes(current, subdomains)
+        subdomains.each do |sub|
+
+          # get instance index
+          index = parse_index_from_sub_name( sub[:name] )
+          next if index.nil?
+
+          # get instance from index
+          instance = current['domain'][index]
+
+          # get params subdomain attributes
+          params = sub.reject{|k,v| k == :name }
+
+          # add in params to instance config
+          params.keys.each do |key|
+            if instance.has_key?(key)
+              instance[key] = instance[key] += params[key]
+            else
+              instance[key] = params[key]
+            end
+          end
+
+        end
+      end
+
       def filter_data(data)
         current = data[project_name][environment_name] rescue nil
         raise "No configuration file defined data for project `#{project_name}`, environment `#{environment_name}`" unless current
@@ -191,8 +317,65 @@ class WhiskeyDisk
           'project' => project_name,
         })
 
+        if is_scaling_instance?
+          # running on instance command is called from
+          current['domain'] = [{ name: 'local', roles: ["app", "assets"] }]
+
+        elsif is_auto_scaling_group?(current)
+
+          #
+          #   pull 'subdomain' attributes from config
+          #   i.e. attributes that should only apply to certain nodes
+          #
+          subdomains            = current['domain'][1..-1]
+
+          current.merge!(node_tags) unless node_tags.nil?
+
+          if use_all_nodes?
+            # get the ASG nodes from AWS
+            current['domain']     = get_asg_nodes(current)
+          else
+            # get nodes specified by --tags option
+            current['domain']     = get_nodes_by_tags(current)
+          end
+
+          # apply subdomain attributes
+          # FIX ME: how to handle subdomains when instances grabbed by tags?
+          # see https://github.com/kingandpartners/devops/issues/46
+          unless !use_all_nodes? || subdomains.nil? || subdomains.empty?
+            apply_subdomain_attributes(current, subdomains)
+          end
+
+        end
+
         current['config_target'] ||= environment_name
         current
+      end
+
+      def is_scaling_instance?
+        ENV['command'] == 'scale'
+      end
+
+      def use_all_nodes?
+        node_tags.nil? || node_tags.empty?
+      end
+
+      def node_tags
+        return nil if ENV['tags'].nil?
+
+        @node_tags ||= {
+          'node_tags' => parse_node_tags(ENV['tags'])
+        }
+      end
+
+      def parse_node_tags(tags)
+        parsed_tags = {}
+        tags.split(',').each do |tag|
+          key = tag.split('=')[0]
+          val = tag.split('=')[1]
+          parsed_tags[key] = val
+        end
+        parsed_tags
       end
 
       def fetch
